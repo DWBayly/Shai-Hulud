@@ -12,17 +12,20 @@ def getDefaultMap(x,y):
     return listMap
 
 def fillMap(listMap,data):
+    newMap = listMap
     for x in data["board"]["snakes"]:
         for y in x["body"]:
-            listMap[y["y"]][y["x"]]=1
-    return listMap
+            newMap[y["y"]][y["x"]]=1
+    for food in data["board"]["food"]:
+        newMap[food["x"]][food["y"]] = -1
+    return newMap
 
 def printMap(listMap):
     for x in listMap:
         print(x)
 
 def calcDist(x1,y1,x2,y2):
-    return math.sqrt((x2-x1)^2+(y2-y1)^2)
+    return math.sqrt(abs(x2-x1)^2+abs(y2-y1)^2)
 
 def getDiagonal(head,xMod,yMod,filledMap,xMax,yMax):
     res =0
@@ -39,8 +42,8 @@ def getDiagonal(head,xMod,yMod,filledMap,xMax,yMax):
 
 directions = ['up', 'down', 'left', 'right']
 def pickMove(inputs):
-    #direction = random.choice(directions)
-    return 'right'
+    direction = random.choice(directions)
+    return direction
 
 def genInputs(listMap,data):
     inputs = []
@@ -67,11 +70,14 @@ def genInputs(listMap,data):
     inputs.append(getDiagonal(head,0,-1,listMap,data["board"]["width"],data["board"]["height"]))
     inputs.append(getDiagonal(head,-1,0,listMap,data["board"]["width"],data["board"]["height"]))
     inputs.append(getDiagonal(head,1,0,listMap,data["board"]["width"],data["board"]["height"]))
+    inputs.append(data["you"]["health"])
+    #Inputs should be a list with head x, head y, the horizontal and vertical distance to the nearest food. followed by the distance to the nearest wall in each direction and hunger
+    print(inputs)
     return inputs
-
+# Increments the board state. Returns wether the game is over or not and 
 def tick(data,move,filledMap):
     newData = data
-    head = data["you"]["body"]
+    head = data["you"]["body"][0]
     if(move == "up"):
         head['y'] = head["y"]-1
     elif move == "down":
@@ -80,30 +86,43 @@ def tick(data,move,filledMap):
         head['x'] = head["x"]-1
     elif move ==  "right":
         head['x'] = head["x"]+1
-    if(head['x]'<0 or y<0 or x>=xMax or y>=yMax or filledMap):
+    if(head['x']<0 
+        or head['y']<0
+        or head['x']>=data["board"]["width"]
+        or head['y']>=data["board"]["height"]):
         return (False,data)
-    if(filledMap[head['x']][head['y']]===1):
+    if(filledMap[head['x']][head['y']]==1):
         return (False,data)
-    newFood = []
+    newData["you"]["health"] = newData["you"]["health"]-1
+    tail = newData["you"]["body"].pop()
+    newData["you"]["body"].insert(0,head)
+    possibleFoodLocations = getPossibleFoodLocations(newData)
     for food in data["board"]["food"]:
-        
-    newData["board"]["food"] = newFood
-    newData["you"]["body"].pop()
-    newData["you"]["body"].insert()
+        #snek eatted the food
+        if(food["x"]==head["x"]
+            and food["y"]==head["y"]):
+            choice = random.choice(possibleFoodLocations)
+            newData["board"]["food"].remove(food)
+            newData["board"]["food"].append(choice)
+            possibleFoodLocations.remove(choice)
+            newData["you"]["body"].append(tail)
+    for index in range(len(newData["board"]["snakes"])): 
+        if newData["board"]["snakes"][index]["id"] == newData["you"]["id"]:
+            newData["board"]["snakes"][index] = newData["you"]
+    print(newData)
     return [True,newData]
 
-getPossibleFoodLocations(data):
+def getPossibleFoodLocations(data):
     locationList = []
-    for y in range(data["board"]["height"])
-        for x in range(data["board"]["width"])
-        flag = True
-            for snake in data["board"]["snakes"]
-                if({'x':x,'y'} in snake["body"]):
+    for y in range(data["board"]["height"]):
+        for x in range(data["board"]["width"]):
+            flag = True
+            for snake in data["board"]["snakes"]:
+                if({'x': x,'y':y} in snake["body"]):
                     flag = False
                     break
             if(flag):
-                locationList.push({'x':x,'y':y})
-    print(locationList)
+                locationList.append({'x':x,'y':y})
     return locationList
 
             
@@ -111,18 +130,20 @@ getPossibleFoodLocations(data):
 
 
 def main():
-    with open('map.json') as map_json:
+    with open('./app/map.json') as map_json:
         data = json.load(map_json)
-        listMap = getDefaultMap(data["board"]["height"],data["board"]["width"])
-        print()
         continueGame = True
         turnCounter = 0
-        while(continueGame and turnCounter<10):
+        while(continueGame):
             turnCounter = turnCounter +1
+            #update the map with the current state, then print it. 
+            listMap = getDefaultMap(data["board"]["height"],data["board"]["width"])
             filledMap = fillMap(listMap,data)
             printMap(filledMap)
+            #generate map based off of 
             move = pickMove(genInputs(filledMap,data))
             results = tick(data,move,filledMap)
+            #tick will increment the game, and return if the game is over and the new board state. ls
             continueGame = results[0]
             data = results[1]
         
